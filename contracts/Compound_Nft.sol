@@ -40,14 +40,14 @@ contract MyNFT is ERC721 {
         _burn(tokenId);
     }
 
-    // only admin can withdraw 
+    // only admin can withdraw
     function withdraw(uint256 cTokenBalance) external {
         require(msg.sender == admin, "only admin can withdraw");
         uint256 interest = calculateInterest(cTokenBalance);
         uint256 adminFee = interest.mul(10).div(100);
         token.transfer(admin, adminFee);
     }
-    
+
     // internal function to calculate interest
     function calculateInterest(
         uint256 cTokenBalance
