@@ -1,59 +1,68 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
-//import library
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/Compound.sol";
 
-//Contract
-contract MyNFT is ERC721 {
+contract NFTCompound is ERC721 {
     using SafeMath for uint256;
     address public admin;
     IERC20 private token;
     CErc20 private cToken;
     uint256 private _nextTokenId;
 
-    // token & cToken address of underlying asset
-    constructor(address _token, address _cToken) ERC721("MyNft", "NFT") {
-        token = IERC20(_token);
-        cToken = CErc20(_cToken);
+    uint256 private lastInterestAccrued;
+
+    constructor(
+        address _daiAddress,
+        address _cDaiAddress
+    ) ERC721("NFTCompound", "NFTC") {
+        token = IERC20(_daiAddress);
+        cToken = CErc20(_cDaiAddress);
         admin = msg.sender;
+
+        lastInterestAccrued = block.timestamp;
     }
 
-    // supply 100Dai to mint Nft
-    function mint(uint256 _amount) external {
-        require(_amount >= 100, "minimum amount is 100 Dai");
-        token.transferFrom(msg.sender, address(this), _amount);
-        token.approve(address(cToken), _amount);
-        require(cToken.mint(_amount) == 0, "Failed to mint cToken");
+    function mintNFT() external {
+        require(
+            token.transferFrom(msg.sender, address(this), 100),
+            "Transfer failed"
+        );
+        token.approve(address(cToken), 100);
+
+        require(cToken.mint(100) == 0, "Failed to mint cToken");
         uint256 tokenId = _nextTokenId++;
         _safeMint(msg.sender, tokenId);
     }
-    // burn nft to redeem 100Dai
-    function burn(uint256 tokenId) external {
-        uint256 cTokenBalance = cToken.balanceOf(address(this));
-        require(cToken.redeem(cTokenBalance) == 0, "Failed to redeem cToken");
-        uint256 tokenBalance = token.balanceOf(address(this));
-        token.transfer(msg.sender, tokenBalance);
+
+    function burnNFT(uint256 tokenId) external {
+        require(ownerOf(tokenId) == msg.sender, "Not the owner");
         _burn(tokenId);
+        uint256 daiAmount = 100;
+        uint256 cDaiBalance = cToken.balanceOf(address(this));
+        // require(cToken.redeem(cDaiBalance) == 0, "Failed to redeem cToken");
+        uint256 amount = cToken.redeem(cDaiBalance) - daiAmount;
+        require(token.transfer(msg.sender, daiAmount), "Transfer failed");
+        token.transfer(address(this), amount);
     }
 
-    // only admin can withdraw
-    function withdraw(uint256 cTokenBalance) external {
+    function withdrawInterest() external {
         require(msg.sender == admin, "only admin can withdraw");
-        uint256 interest = calculateInterest(cTokenBalance);
-        uint256 adminFee = interest.mul(10).div(100);
-        token.transfer(admin, adminFee);
+        uint256 interest = calculateInterest();
+        require(token.transfer(msg.sender, interest), "Transfer failed");
+        lastInterestAccrued = block.timestamp;
     }
 
-    // internal function to calculate interest
-    function calculateInterest(
-        uint256 cTokenBalance
-    ) internal returns (uint256) {
-        uint256 exchangeRate = cToken.exchangeRateCurrent();
-        uint256 tokenBalance = cTokenBalance.mul(exchangeRate);
-        return tokenBalance.sub(100);
+    function calculateInterest() internal returns (uint256) {
+        uint256 currentTime = block.timestamp;
+        uint256 timeElapsed = currentTime - lastInterestAccrued;
+        uint256 supplyRate = cToken.supplyRatePerBlock();
+        uint256 balance = cToken.balanceOfUnderlying(address(this));
+        uint256 accruedInterest = (balance * supplyRate * timeElapsed) /
+            (1e18 * 15 seconds);
+        return accruedInterest;
     }
 }
