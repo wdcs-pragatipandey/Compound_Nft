@@ -2,7 +2,7 @@ require('@nomiclabs/hardhat-web3');
 require('@nomiclabs/hardhat-ethers');
 const ethers = require('ethers');
 
-MAINNET_PROVIDER_URL = "https://mainnet.infura.io/v3/4aab23e365e34167a088a56884910bd5",
+MAINNET_PROVIDER_URL = "https://eth-mainnet.g.alchemy.com/v2/H3MRrJfLcelcmZa91oCAeu6A_4EtAlDP",
   DEV_ETH_MNEMONIC = "nasty law wise trumpet elephant spike pottery gown admit live element hood"
 
 const providerUrl = MAINNET_PROVIDER_URL;
