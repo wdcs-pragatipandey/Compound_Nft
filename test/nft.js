@@ -37,5 +37,4 @@ describe('Nft_compound Contract', function () {
     await nft.connect(addrAdmin).withdrawInterest();
   });
 
-
 })
